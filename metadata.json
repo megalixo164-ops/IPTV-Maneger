@@ -1,5 +1,5 @@
 {
   "name": "IPTV Manager Pro",
-  "description": "Sistema de gestão de clientes IPTV com lembretes automáticos de renovação.",
+  "description": "Sistema de gestão de clientes IPTV com lembretes automáticos de renovação e geração de mensagens via IA.",
   "requestFramePermissions": []
 }
