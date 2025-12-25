@@ -113,7 +113,19 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   type="date"
                   required
                   value={formData.startDate}
-                  onChange={e => setFormData({...formData, startDate: e.target.value})}
+                  onChange={e => {
+                    const newStart = e.target.value;
+                    const updates: any = { startDate: newStart };
+                    if (!editingClient && newStart) {
+                       // Auto-calculate renewal (30 days) for new entries
+                       try {
+                         const d = new Date(newStart + 'T12:00:00'); // Use noon to avoid timezone shift
+                         d.setDate(d.getDate() + 30);
+                         updates.renewalDate = d.toISOString().split('T')[0];
+                       } catch(e) {}
+                    }
+                    setFormData({...formData, ...updates});
+                  }}
                   className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none text-base"
                 />
               </div>
