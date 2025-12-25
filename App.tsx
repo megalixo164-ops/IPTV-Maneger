@@ -193,10 +193,10 @@ const App: React.FC = () => {
       <header className="sticky top-0 z-40 glass border-b border-white/5 pt-[env(safe-area-inset-top)]">
         <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 md:w-10 md:h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
+            <div className="w-9 h-9 md:w-10 md:h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/40 cursor-default">
               <Tv className="text-white" size={18} />
             </div>
-            <div className="hidden xs:block">
+            <div className="hidden xs:block cursor-default">
               <h1 className="text-base md:text-lg font-black tracking-tighter text-white">MANAGER PRO</h1>
               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Dashboard</p>
             </div>
@@ -204,7 +204,7 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-3 md:gap-6">
             <div className="flex items-center gap-3 pl-3 md:pl-0 border-l md:border-l-0 border-white/5">
-               <div className="text-right hidden sm:block">
+               <div className="text-right hidden sm:block cursor-default">
                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Conta Ativa</p>
                  {/* Injeção de Nome (#user-name) */}
                  <p id="user-name" className="text-xs font-bold text-white leading-none truncate max-w-[120px]">{loggedUser.username}</p>
@@ -231,12 +231,12 @@ const App: React.FC = () => {
             <div className="flex items-center gap-1">
               <button 
                 onClick={() => setIsSettingsOpen(true)}
-                className="p-2 text-slate-400 hover:text-white transition-colors"
+                className="p-2 text-slate-400 hover:text-white transition-colors hover:bg-white/5 rounded-lg"
                 title="Configurações e Backup"
               >
                 <Settings size={20} />
               </button>
-              <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-400 transition-colors" title="Sair">
+              <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-400 transition-colors hover:bg-rose-500/10 rounded-lg" title="Sair">
                 <LogOut size={20} />
               </button>
               <button 
@@ -251,8 +251,8 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="max-w-7xl mx-auto px-4 flex overflow-x-auto scrollbar-hide scroll-ios">
+        {/* Tab Switcher - Optimized for Desktop (no scroll, just flex) */}
+        <div className="max-w-7xl mx-auto px-4 flex overflow-x-auto md:overflow-visible scrollbar-hide scroll-ios gap-1 md:gap-4">
           <button onClick={() => setActiveTab('list')} className={`flex-shrink-0 flex items-center gap-2 px-6 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'list' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>
             <LayoutDashboard size={14} /> Painel
             {activeTab === 'list' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-500 rounded-full shadow-[0_-4px_12px_rgba(99,102,241,0.6)]"></div>}
@@ -269,8 +269,8 @@ const App: React.FC = () => {
           <>
             <StatsCards stats={stats} />
             
-            <div className="space-y-4 md:space-y-6 mb-8 md:mb-12">
-              <div className="relative group">
+            <div className="flex flex-col md:flex-row gap-4 mb-8 md:mb-12 items-start md:items-center">
+              <div className="relative group w-full md:flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-500 transition-colors" size={18} />
                 <input 
                   type="text" 
@@ -280,13 +280,14 @@ const App: React.FC = () => {
                   className="w-full bg-slate-900/50 border border-white/5 text-white rounded-2xl md:rounded-[24px] pl-12 pr-12 py-4 md:py-5 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/30 outline-none transition-all text-base font-medium shadow-inner" 
                 />
                 {searchTerm && (
-                  <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all">
+                  <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all cursor-pointer">
                     <X size={14} className="text-slate-400" />
                   </button>
                 )}
               </div>
 
-              <div className="flex flex-nowrap overflow-x-auto gap-2 md:gap-3 items-center p-1.5 rounded-[20px] md:rounded-[24px] bg-slate-900/40 border border-white/5 scrollbar-hide scroll-ios">
+              {/* Filtros em Lista Horizontal sem scroll no Desktop */}
+              <div className="w-full md:w-auto flex flex-nowrap overflow-x-auto md:overflow-visible gap-2 md:gap-3 items-center p-1.5 rounded-[20px] md:rounded-[24px] bg-slate-900/40 border border-white/5 scrollbar-hide scroll-ios">
                 <FilterTab active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} label="Todos" count={counts.all} color="indigo" />
                 <FilterTab active={filterStatus === 'active'} onClick={() => setFilterStatus('active')} label="Ativos" count={counts.active} color="emerald" />
                 <FilterTab active={filterStatus === 'expiring'} onClick={() => setFilterStatus('expiring')} label="Aviso" count={counts.expiring} color="amber" />
@@ -295,7 +296,7 @@ const App: React.FC = () => {
             </div>
 
             {filteredClients.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-6">
                 {filteredClients.map(client => (
                   <ClientCard 
                     key={client.id} 
@@ -342,13 +343,13 @@ const App: React.FC = () => {
 
 const FilterTab: React.FC<{active: boolean, onClick: () => void, label: string, count: number, color: string}> = ({ active, onClick, label, count, color }) => {
   const colorMap: any = {
-    indigo: active ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-white/5',
-    emerald: active ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-white/5',
-    amber: active ? 'bg-amber-600 text-white' : 'text-slate-500 hover:bg-white/5',
-    rose: active ? 'bg-rose-600 text-white' : 'text-slate-500 hover:bg-white/5'
+    indigo: active ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200',
+    emerald: active ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200',
+    amber: active ? 'bg-amber-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200',
+    rose: active ? 'bg-rose-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200'
   };
   return (
-    <button onClick={onClick} className={`flex-shrink-0 flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest transition-all ${colorMap[color]} active:scale-95`}>
+    <button onClick={onClick} className={`flex-shrink-0 flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest transition-all ${colorMap[color]} active:scale-95 cursor-pointer`}>
       {label}
       <span className={`px-1.5 py-0.5 rounded-lg ${active ? 'bg-black/20' : 'bg-slate-800'}`}>{count}</span>
     </button>

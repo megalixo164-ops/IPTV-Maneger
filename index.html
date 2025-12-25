@@ -24,8 +24,10 @@
       body {
         font-family: 'Inter', sans-serif;
         background-color: var(--bg-main);
+        /* Scrollbar padronizada para Desktop e Mobile */
         scrollbar-width: thin;
-        scrollbar-color: #1e293b #020617;
+        scrollbar-color: #334155 #0f172a;
+        
         /* Safe Area Padding for iOS */
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
@@ -33,26 +35,42 @@
         padding-right: env(safe-area-inset-right);
         overflow-x: hidden;
       }
+
+      /* Estilização Webkit Scrollbar (Chrome/Edge Desktop) */
       ::-webkit-scrollbar {
-        width: 6px;
+        width: 10px; /* Mais largo para facilitar clique com mouse */
+        height: 10px;
       }
       ::-webkit-scrollbar-track {
-        background: #020617;
+        background: #0f172a;
+        border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb {
-        background: #1e293b;
-        border-radius: 10px;
+        background: #334155;
+        border-radius: 6px;
+        border: 2px solid #0f172a; /* Cria um efeito de padding */
       }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569; /* Feedback visual no hover */
+      }
+
       .glass {
         background: rgba(15, 23, 42, 0.65);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.05);
       }
-      /* Smooth Scrolling for iOS */
+      
+      /* Smooth Scrolling for iOS/Touch */
       .scroll-ios {
         -webkit-overflow-scrolling: touch;
       }
+      
+      /* Desktop: Ensure clickable items show pointer */
+      button, a, [role="button"] {
+        cursor: pointer;
+      }
+
       @keyframes fade-in-up {
         from {
           opacity: 0;

@@ -90,8 +90,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      <div className="glass border-white/10 rounded-[32px] md:rounded-[40px] w-full max-w-2xl shadow-3xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
-        <div className="px-6 md:px-8 py-4 md:py-6 border-b border-white/5 flex justify-between items-center flex-shrink-0">
+      <div className="glass border-white/10 rounded-[32px] md:rounded-[24px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col border border-white/10">
+        <div className="px-6 md:px-8 py-4 md:py-5 border-b border-white/5 flex justify-between items-center flex-shrink-0 bg-slate-900/50">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 md:w-10 md:h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center">
               <User className="text-indigo-400" size={18} />
@@ -100,13 +100,13 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               {editingClient ? 'Editar Cliente' : 'Novo Registro'}
             </h2>
           </div>
-          <button onClick={onClose} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all active:scale-90">
+          <button onClick={onClose} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all active:scale-90 cursor-pointer">
             <X size={20} />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6 md:space-y-8 overflow-y-auto scroll-ios flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6 md:space-y-6 overflow-y-auto scroll-ios flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
             {/* Dados Pessoais */}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome do Cliente</label>
@@ -117,7 +117,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   required
                   value={formData.name}
                   onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-medium text-base"
+                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-medium text-base hover:border-white/10"
                   placeholder="Nome completo"
                 />
               </div>
@@ -132,7 +132,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   required
                   value={formData.phone}
                   onChange={e => setFormData({...formData, phone: e.target.value})}
-                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-medium text-base"
+                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-medium text-base hover:border-white/10"
                   placeholder="DDD + Número"
                 />
               </div>
@@ -156,7 +156,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                     }
                     setFormData({...formData, ...updates});
                   }}
-                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none text-base"
+                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none text-base hover:border-white/10"
                 />
               </div>
             </div>
@@ -167,7 +167,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   <button 
                     type="button" 
                     onClick={setRenewalTo30Days}
-                    className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded hover:bg-indigo-500/20 transition-colors flex items-center gap-1"
+                    className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded hover:bg-indigo-500/20 transition-colors flex items-center gap-1 cursor-pointer"
                     title="Somar 30 dias a partir do início"
                   >
                     <Calculator size={10} /> +30 Dias
@@ -180,7 +180,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   required
                   value={formData.renewalDate}
                   onChange={e => setFormData({...formData, renewalDate: e.target.value})}
-                  className="w-full bg-slate-950/40 border border-indigo-500/20 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-indigo-400 focus:ring-2 focus:ring-indigo-500/30 outline-none font-bold text-base"
+                  className="w-full bg-slate-950/40 border border-indigo-500/20 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-indigo-400 focus:ring-2 focus:ring-indigo-500/30 outline-none font-bold text-base hover:border-indigo-500/40"
                 />
               </div>
             </div>
@@ -195,7 +195,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   required
                   value={formData.price}
                   onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})}
-                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none font-bold text-base"
+                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none font-bold text-base hover:border-white/10"
                 />
               </div>
             </div>
@@ -208,7 +208,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   type="text"
                   value={formData.server}
                   onChange={e => setFormData({...formData, server: e.target.value})}
-                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all uppercase font-bold text-base"
+                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all uppercase font-bold text-base hover:border-white/10"
                   placeholder="P2P, Gold..."
                 />
               </div>
@@ -218,7 +218,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
           <div className="w-full h-px bg-white/5 my-2"></div>
 
           {/* Dados Técnicos / Acesso */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
              <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Endereço MAC</label>
               <div className="relative">
@@ -227,7 +227,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   type="text"
                   value={formData.macAddress}
                   onChange={e => setFormData({...formData, macAddress: e.target.value})}
-                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-mono text-sm uppercase"
+                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-mono text-sm uppercase hover:border-white/10"
                   placeholder="00:1A:2B:3C:4D:5E"
                 />
               </div>
@@ -241,7 +241,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   type="text"
                   value={formData.devicePassword}
                   onChange={e => setFormData({...formData, devicePassword: e.target.value})}
-                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-medium text-base"
+                  className="w-full bg-slate-950/40 border border-white/5 rounded-2xl pl-12 pr-4 py-3.5 md:py-3.5 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all font-medium text-base hover:border-white/10"
                   placeholder="Senha de acesso"
                 />
               </div>
@@ -255,7 +255,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               <textarea
                 value={formData.notes}
                 onChange={e => setFormData({...formData, notes: e.target.value})}
-                className="w-full bg-slate-950/40 border border-white/5 rounded-3xl pl-12 pr-4 py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all h-28 resize-none font-medium text-base"
+                className="w-full bg-slate-950/40 border border-white/5 rounded-3xl pl-12 pr-4 py-4 text-white focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all h-28 resize-none font-medium text-base hover:border-white/10"
                 placeholder="Login, detalhes adicionais..."
               />
             </div>
@@ -265,13 +265,13 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
              <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest active:scale-95"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest active:scale-95 cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-2xl shadow-indigo-900/40 active:scale-95"
+              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-2xl shadow-indigo-900/40 active:scale-95 cursor-pointer"
             >
               <Save size={18} />
               Salvar Registro
