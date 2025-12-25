@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '../types';
-import { Calendar, Smartphone, DollarSign, MessageCircle, Trash2, Edit, Wand2, Copy, Check, UserCheck, Clock, AlertCircle, StickyNote, ExternalLink, Zap, Cpu, Key } from 'lucide-react';
-import { generateRenewalMessage } from '../services/geminiService';
+import { Calendar, Smartphone, DollarSign, MessageCircle, Trash2, Edit, Check, UserCheck, Clock, AlertCircle, StickyNote, ExternalLink, Zap, Cpu, Key, Copy } from 'lucide-react';
 
 interface ClientCardProps {
   client: Client;
@@ -12,16 +11,13 @@ interface ClientCardProps {
 }
 
 export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpiration, onDelete, onEdit, onRenew }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedMsg, setGeneratedMsg] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [successAnimation, setSuccessAnimation] = useState(false);
   
   // States para cópia individual de campos
   const [macCopied, setMacCopied] = useState(false);
   const [passCopied, setPassCopied] = useState(false);
 
-  // UseEffect para resetar a animação caso o card mude drasticamente, embora a lógica principal seja no click
+  // UseEffect para resetar a animação caso o card mude drasticamente
   useEffect(() => {
     if (successAnimation) {
       const timer = setTimeout(() => setSuccessAnimation(false), 2500);
@@ -56,22 +52,6 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
     };
   }
 
-  const handleGenerateMessage = async () => {
-    setIsGenerating(true);
-    setGeneratedMsg(null);
-    const msg = await generateRenewalMessage(client);
-    setGeneratedMsg(msg);
-    setIsGenerating(false);
-  };
-
-  const copyToClipboard = () => {
-    if (generatedMsg) {
-      navigator.clipboard.writeText(generatedMsg);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-  
   const copyField = (text: string, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
       navigator.clipboard.writeText(text);
       setter(true);
@@ -81,13 +61,6 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
   const handleRenewClick = () => {
     setSuccessAnimation(true);
     onRenew(client.id);
-  };
-
-  const sendWhatsApp = () => {
-    if (!client.phone) return;
-    const cleanPhone = client.phone.replace(/\D/g, '');
-    const text = generatedMsg ? encodeURIComponent(generatedMsg) : "";
-    window.open(`https://wa.me/55${cleanPhone}?text=${text}`, '_blank');
   };
 
   return (
@@ -230,63 +203,18 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
            </div>
         ) : null}
         
-        {!generatedMsg && !successAnimation && (
-           <div className="flex gap-2">
-             <button
-              onClick={handleGenerateMessage}
-              disabled={isGenerating}
-              className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition-all disabled:opacity-50 active:scale-[0.97]"
-             >
-               {isGenerating ? (
-                 <span className="animate-pulse">Criando...</span>
-               ) : (
-                 <>
-                   <Wand2 size={14} />
-                   Cobrança IA
-                 </>
-               )}
-             </button>
-              <button 
-                onClick={() => {
-                  const cleanPhone = client.phone.replace(/\D/g, '');
-                  window.open(`https://wa.me/55${cleanPhone}`, '_blank');
-                }}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-2xl transition-all active:scale-[0.97]"
-                title="Abrir WhatsApp"
-              >
-                <MessageCircle size={20} />
-              </button>
-           </div>
-        )}
-
-        {generatedMsg && !successAnimation && (
-          <div className="bg-slate-900/80 rounded-2xl p-4 border border-indigo-500/20 animate-in fade-in zoom-in-95">
-            <p className="text-slate-300 text-xs whitespace-pre-line mb-4 border-l-2 border-indigo-500 pl-3 italic">
-              {generatedMsg}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={copyToClipboard}
-                className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all"
-              >
-                {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                {copied ? "Pronto!" : "Copiar"}
-              </button>
-              <button
-                onClick={sendWhatsApp}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-xl flex items-center justify-center gap-2 text-[11px] font-bold transition-all"
-              >
-                <MessageCircle size={14} />
-                Enviar
-              </button>
-              <button 
-                 onClick={() => setGeneratedMsg(null)}
-                 className="w-full mt-2 text-slate-500 hover:text-white text-[10px] font-bold uppercase tracking-widest text-center"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
+        {!successAnimation && (
+           <button 
+            onClick={() => {
+              const cleanPhone = client.phone.replace(/\D/g, '');
+              window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+            }}
+            className="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition-all active:scale-[0.97] uppercase tracking-wide border border-white/5"
+            title="Abrir WhatsApp"
+           >
+             <MessageCircle size={18} />
+             WhatsApp
+           </button>
         )}
       </div>
     </div>
