@@ -8,13 +8,30 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { AuthView } from './components/AuthView';
 import { auth, onAuthStateChanged, signOut } from './services/firebase';
 
+// Helper seguro para criar data local a partir de YYYY-MM-DD
+// Evita o erro de fuso horário que subtrai 1 dia
+const parseLocalDate = (dateString: string): Date => {
+  if (!dateString) return new Date();
+  const [y, m, d] = dateString.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 const getDaysDifference = (dateString: string): number => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const targetDate = new Date(dateString);
+  
+  const targetDate = parseLocalDate(dateString);
   targetDate.setHours(0, 0, 0, 0);
+  
   const diffTime = targetDate.getTime() - today.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+const formatLocalDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const App: React.FC = () => {
@@ -93,20 +110,22 @@ const App: React.FC = () => {
       if (client.id !== id) return client;
 
       const today = new Date();
-      const currentRenewal = new Date(client.renewalDate);
-      let newDate = new Date();
+      today.setHours(0,0,0,0);
+      
+      const currentRenewal = parseLocalDate(client.renewalDate);
+      let newBaseDate = currentRenewal;
 
+      // Se já venceu, renova a partir de HOJE. Se não, soma à data atual.
       if (currentRenewal < today) {
-        newDate = new Date(today);
-      } else {
-        newDate = new Date(currentRenewal);
+        newBaseDate = today;
       }
       
-      newDate.setDate(newDate.getDate() + 30);
+      // Soma 30 dias
+      newBaseDate.setDate(newBaseDate.getDate() + 30);
 
       return {
         ...client,
-        renewalDate: newDate.toISOString()
+        renewalDate: formatLocalDate(newBaseDate)
       };
     }));
   };
@@ -115,8 +134,11 @@ const App: React.FC = () => {
     let revenue = 0;
     let expiring = 0;
     clients.forEach(c => {
-      revenue += c.price;
       const days = getDaysDifference(c.renewalDate);
+      // Considera receita apenas se não estiver vencido há muito tempo (ex: 30 dias)
+      if (days > -30) {
+          revenue += c.price;
+      }
       if (days >= 0 && days <= 3) expiring++;
     });
     return { totalClients: clients.length, activeRevenue: revenue, expiringSoon: expiring };

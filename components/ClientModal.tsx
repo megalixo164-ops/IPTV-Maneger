@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '../types';
-import { X, Save, User, Smartphone, Server, FileText, Calendar, CreditCard, Cpu, Key } from 'lucide-react';
+import { X, Save, User, Smartphone, Server, FileText, Calendar, CreditCard, Cpu, Key, Calculator } from 'lucide-react';
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -9,11 +9,24 @@ interface ClientModalProps {
   editingClient: Client | null;
 }
 
+// Helper para somar dias sem erro de fuso
+const addDaysToDate = (dateStr: string, days: number): string => {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + days);
+  
+  const newY = date.getFullYear();
+  const newM = String(date.getMonth() + 1).padStart(2, '0');
+  const newD = String(date.getDate()).padStart(2, '0');
+  return `${newY}-${newM}-${newD}`;
+};
+
 const emptyClient: Omit<Client, 'id'> = {
   name: '',
   phone: '',
-  startDate: new Date().toISOString().split('T')[0],
-  renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  startDate: new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-'), // YYYY-MM-DD local
+  renewalDate: '', 
   price: 35.00,
   devices: 1,
   notes: '',
@@ -21,6 +34,11 @@ const emptyClient: Omit<Client, 'id'> = {
   macAddress: '',
   devicePassword: ''
 };
+
+// Initialize renewal date based on empty client (calculated after declaration to reuse helper)
+const todayStr = new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-');
+(emptyClient as any).renewalDate = addDaysToDate(todayStr, 30);
+
 
 export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSave, editingClient }) => {
   const [formData, setFormData] = useState<Omit<Client, 'id'>>(emptyClient);
@@ -40,7 +58,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
         devicePassword: editingClient.devicePassword || ''
       });
     } else {
-      setFormData(emptyClient);
+      const today = new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-');
+      setFormData({
+        ...emptyClient,
+        startDate: today,
+        renewalDate: addDaysToDate(today, 30)
+      });
     }
   }, [editingClient, isOpen]);
 
@@ -53,6 +76,13 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
       id: editingClient ? editingClient.id : crypto.randomUUID(),
     });
     onClose();
+  };
+
+  const setRenewalTo30Days = () => {
+    if (formData.startDate) {
+        const newDate = addDaysToDate(formData.startDate, 30);
+        setFormData({ ...formData, renewalDate: newDate });
+    }
   };
 
   return (
@@ -116,13 +146,10 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   onChange={e => {
                     const newStart = e.target.value;
                     const updates: any = { startDate: newStart };
+                    
+                    // Se for novo cliente, calcula auto +30
                     if (!editingClient && newStart) {
-                       // Auto-calculate renewal (30 days) for new entries
-                       try {
-                         const d = new Date(newStart + 'T12:00:00'); // Use noon to avoid timezone shift
-                         d.setDate(d.getDate() + 30);
-                         updates.renewalDate = d.toISOString().split('T')[0];
-                       } catch(e) {}
+                       updates.renewalDate = addDaysToDate(newStart, 30);
                     }
                     setFormData({...formData, ...updates});
                   }}
@@ -132,7 +159,17 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Próxima Renovação</label>
+              <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Próxima Renovação</label>
+                  <button 
+                    type="button" 
+                    onClick={setRenewalTo30Days}
+                    className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded hover:bg-indigo-500/20 transition-colors flex items-center gap-1"
+                    title="Somar 30 dias a partir do início"
+                  >
+                    <Calculator size={10} /> +30 Dias
+                  </button>
+              </div>
               <div className="relative">
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400/50" size={16} />
                 <input
