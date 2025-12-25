@@ -115,14 +115,20 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
         
         <div className="flex gap-1">
           <button 
-            onClick={() => onEdit(client)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(client);
+            }}
             className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
             title="Editar"
           >
             <Edit size={18} />
           </button>
           <button 
-            onClick={() => onDelete(client.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(client.id);
+            }}
             className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-400/5 rounded-xl transition-all"
             title="Excluir"
           >
