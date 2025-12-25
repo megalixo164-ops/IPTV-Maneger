@@ -11,7 +11,7 @@ interface ClientCardProps {
   onRenew: (id: string) => void;
 }
 
-export const ClientCard: React.FC<ClientCardProps> = React.memo(({ client, daysUntilExpiration, onDelete, onEdit, onRenew }) => {
+export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpiration, onDelete, onEdit, onRenew }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedMsg, setGeneratedMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -291,4 +291,4 @@ export const ClientCard: React.FC<ClientCardProps> = React.memo(({ client, daysU
       </div>
     </div>
   );
-});
+};
