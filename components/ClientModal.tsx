@@ -9,6 +9,16 @@ interface ClientModalProps {
   editingClient: Client | null;
 }
 
+// Gera string YYYY-MM-DD baseada no horário local do dispositivo
+// Evita bugs onde 'toLocaleDateString' pode retornar formatos inesperados (ex: MM/DD/YYYY) dependendo do browser
+const getTodayISO = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // Helper para somar dias sem erro de fuso
 const addDaysToDate = (dateStr: string, days: number): string => {
   if (!dateStr) return '';
@@ -22,26 +32,24 @@ const addDaysToDate = (dateStr: string, days: number): string => {
   return `${newY}-${newM}-${newD}`;
 };
 
-const emptyClient: Omit<Client, 'id'> = {
-  name: '',
-  phone: '',
-  startDate: new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-'), // YYYY-MM-DD local
-  renewalDate: '', 
-  price: 35.00,
-  devices: 1,
-  notes: '',
-  server: '',
-  macAddress: '',
-  devicePassword: ''
+const getEmptyClient = (): Omit<Client, 'id'> => {
+  const today = getTodayISO();
+  return {
+    name: '',
+    phone: '',
+    startDate: today,
+    renewalDate: addDaysToDate(today, 30), 
+    price: 35.00,
+    devices: 1,
+    notes: '',
+    server: '',
+    macAddress: '',
+    devicePassword: ''
+  };
 };
 
-// Initialize renewal date based on empty client (calculated after declaration to reuse helper)
-const todayStr = new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-');
-(emptyClient as any).renewalDate = addDaysToDate(todayStr, 30);
-
-
 export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSave, editingClient }) => {
-  const [formData, setFormData] = useState<Omit<Client, 'id'>>(emptyClient);
+  const [formData, setFormData] = useState<Omit<Client, 'id'>>(getEmptyClient());
 
   useEffect(() => {
     if (editingClient) {
@@ -58,12 +66,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
         devicePassword: editingClient.devicePassword || ''
       });
     } else {
-      const today = new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-');
-      setFormData({
-        ...emptyClient,
-        startDate: today,
-        renewalDate: addDaysToDate(today, 30)
-      });
+      setFormData(getEmptyClient());
     }
   }, [editingClient, isOpen]);
 

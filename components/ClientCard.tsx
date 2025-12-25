@@ -32,11 +32,12 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
   // Helper para formatar data sem problemas de fuso horário (YYYY-MM-DD -> DD/MM/YYYY)
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
+    // Manual split ensures we display exactly what is stored, avoiding Timezone shifts
     const parts = dateString.split('-');
     if (parts.length === 3) {
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return dateString;
   };
 
   // Status Logic

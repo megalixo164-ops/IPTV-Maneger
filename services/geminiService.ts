@@ -5,13 +5,24 @@ import { Client } from "../types";
 // NOTE: process.env.API_KEY is expected to be available in the build environment
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// Helper para formatar data DD/MM/YYYY de forma segura (sem UTC shift)
+const formatDateSecure = (dateString: string) => {
+  if (!dateString) return 'Data indefinida';
+  const parts = dateString.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateString;
+};
+
 export const generateRenewalMessage = async (client: Client): Promise<string> => {
   if (!process.env.API_KEY) {
     return "Erro: Chave de API não configurada. Por favor, configure a variável de ambiente API_KEY.";
   }
 
   try {
-    const formattedDate = new Date(client.renewalDate).toLocaleDateString('pt-BR');
+    const formattedRenewalDate = formatDateSecure(client.renewalDate);
+    const formattedStartDate = formatDateSecure(client.startDate);
     
     const systemInstruction = `Atue como um assistente pessoal de um revendedor de IPTV.
       Escreva uma mensagem de cobrança/renovação para WhatsApp (PT-BR) para o cliente.
@@ -20,12 +31,14 @@ export const generateRenewalMessage = async (client: Client): Promise<string> =>
       1. Informe educadamente que o plano está próximo do vencimento ou venceu.
       2. Informe OBRIGATORIAMENTE a Chave Pix para pagamento: 55996138553
       3. Adicione explicitamente a frase: "Assim que recebermos o pagamento/comprovante, sua renovação será feita imediatamente!"
-      4. Use emojis relacionados a TV, Filmes e Pagamento para tornar a mensagem agradável.
-      5. Seja breve e direto, retorne apenas o texto da mensagem pronto para copiar e enviar.`;
+      4. Mencione sutilmente que valoriza o cliente (ele está ativo desde ${formattedStartDate}).
+      5. Use emojis relacionados a TV, Filmes e Pagamento para tornar a mensagem agradável.
+      6. Seja breve e direto, retorne apenas o texto da mensagem pronto para copiar e enviar.`;
 
     const userPrompt = `Dados do Cliente:
       - Nome: ${client.name}
-      - Vencimento: ${formattedDate}
+      - Cliente Desde: ${formattedStartDate}
+      - Vencimento Atual: ${formattedRenewalDate}
       - Valor: R$ ${client.price.toFixed(2)}
       - Telas: ${client.devices}`;
 
