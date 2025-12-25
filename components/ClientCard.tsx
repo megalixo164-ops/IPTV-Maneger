@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '../types';
-import { Calendar, Smartphone, DollarSign, MessageCircle, Trash2, Edit, Wand2, Copy, Check, UserCheck, Clock, AlertCircle, StickyNote, ExternalLink, Zap, Cpu, Key, History } from 'lucide-react';
+import { Calendar, Smartphone, DollarSign, MessageCircle, Trash2, Edit, Wand2, Copy, Check, UserCheck, Clock, AlertCircle, StickyNote, ExternalLink, Zap, Cpu, Key } from 'lucide-react';
 import { generateRenewalMessage } from '../services/geminiService';
 
 interface ClientCardProps {
@@ -11,7 +11,7 @@ interface ClientCardProps {
   onRenew: (id: string) => void;
 }
 
-export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpiration, onDelete, onEdit, onRenew }) => {
+export const ClientCard: React.FC<ClientCardProps> = React.memo(({ client, daysUntilExpiration, onDelete, onEdit, onRenew }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedMsg, setGeneratedMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -28,17 +28,6 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
       return () => clearTimeout(timer);
     }
   }, [successAnimation]);
-
-  // Helper para formatar data sem problemas de fuso horário (YYYY-MM-DD -> DD/MM/YYYY)
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    // Manual split ensures we display exactly what is stored, avoiding Timezone shifts
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    return dateString;
-  };
 
   // Status Logic
   let statusTheme = {
@@ -145,18 +134,10 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
       <div className="space-y-3 mb-6 relative z-10">
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-500 font-medium flex items-center gap-2">
-            <History size={14} /> Início
-          </span>
-          <span className="text-slate-300 font-medium">
-            {formatDate(client.startDate)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-500 font-medium flex items-center gap-2">
-            <Calendar size={14} /> Vencimento
+            <Calendar size={14} /> Expiração
           </span>
           <span className={`font-semibold transition-colors duration-500 ${successAnimation ? 'text-emerald-400 scale-105 origin-right' : 'text-slate-200'}`}>
-            {formatDate(client.renewalDate)}
+            {new Date(client.renewalDate).toLocaleDateString('pt-BR')}
           </span>
         </div>
         <div className="flex items-center justify-between text-sm">
@@ -310,4 +291,4 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
       </div>
     </div>
   );
-};
+});

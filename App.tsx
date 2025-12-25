@@ -1,39 +1,30 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { Client, ClientStats, User as UserType } from './types';
-import { Plus, Search, Tv, LayoutDashboard, BarChart3, LogOut, X, Settings } from 'lucide-react';
+import { Plus, Search, Tv, LayoutDashboard, BarChart3, LogOut, X, Loader2 } from 'lucide-react';
+// Keep lightweight components synchronous
 import { StatsCards } from './components/StatsCards';
 import { ClientCard } from './components/ClientCard';
-import { ClientModal } from './components/ClientModal';
-import { SettingsModal } from './components/SettingsModal';
-import { AnalyticsView } from './components/AnalyticsView';
-import { AuthView } from './components/AuthView';
 import { auth, onAuthStateChanged, signOut } from './services/firebase';
 
-// Helper seguro para criar data local a partir de YYYY-MM-DD
-// Evita o erro de fuso horário que subtrai 1 dia
-const parseLocalDate = (dateString: string): Date => {
-  if (!dateString) return new Date();
-  const [y, m, d] = dateString.split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
+// Lazy Load heavy or conditionally rendered components
+const ClientModal = React.lazy(() => import('./components/ClientModal').then(module => ({ default: module.ClientModal })));
+const AnalyticsView = React.lazy(() => import('./components/AnalyticsView').then(module => ({ default: module.AnalyticsView })));
+const AuthView = React.lazy(() => import('./components/AuthView').then(module => ({ default: module.AuthView })));
 
 const getDaysDifference = (dateString: string): number => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
-  const targetDate = parseLocalDate(dateString);
+  const targetDate = new Date(dateString);
   targetDate.setHours(0, 0, 0, 0);
-  
   const diffTime = targetDate.getTime() - today.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-const formatLocalDate = (date: Date): string => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center py-20 text-indigo-500 animate-pulse">
+    <Loader2 size={32} className="animate-spin" />
+  </div>
+);
 
 const App: React.FC = () => {
   const [loggedUser, setLoggedUser] = useState<UserType | null>(null);
@@ -42,7 +33,6 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [activeTab, setActiveTab] = useState<'list' | 'analytics'>('list');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expiring' | 'expired'>('all');
@@ -98,49 +88,64 @@ const App: React.FC = () => {
     }
   }, [clients, loggedUser]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await signOut(auth);
       setLoggedUser(null);
     } catch (error) {
       console.error("Erro ao sair:", error);
     }
-  };
+  }, []);
 
-  const handleRenewClient = (id: string) => {
+  // Stabilize handlers to prevent ClientCard re-renders
+  const handleRenewClient = useCallback((id: string) => {
     setClients(prev => prev.map(client => {
       if (client.id !== id) return client;
 
       const today = new Date();
-      today.setHours(0,0,0,0);
-      
-      const currentRenewal = parseLocalDate(client.renewalDate);
-      let newBaseDate = currentRenewal;
+      const currentRenewal = new Date(client.renewalDate);
+      let newDate = new Date();
 
-      // Se já venceu, renova a partir de HOJE. Se não, soma à data atual.
       if (currentRenewal < today) {
-        newBaseDate = today;
+        newDate = new Date(today);
+      } else {
+        newDate = new Date(currentRenewal);
       }
       
-      // Soma 30 dias
-      newBaseDate.setDate(newBaseDate.getDate() + 30);
+      newDate.setDate(newDate.getDate() + 30);
 
       return {
         ...client,
-        renewalDate: formatLocalDate(newBaseDate)
+        renewalDate: newDate.toISOString()
       };
     }));
-  };
+  }, []);
+
+  const handleDeleteClient = useCallback((id: string) => {
+    if (confirm('Excluir este cliente?')) {
+      setClients(prev => prev.filter(c => c.id !== id));
+    }
+  }, []);
+
+  const handleEditClient = useCallback((c: Client) => {
+    setEditingClient(c);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleSaveClient = useCallback((c: Client) => {
+    if (editingClient) {
+      setClients(prev => prev.map(cl => cl.id === c.id ? c : cl));
+    } else {
+      setClients(prev => [...prev, c]);
+    }
+  }, [editingClient]);
 
   const stats: ClientStats = useMemo(() => {
     let revenue = 0;
     let expiring = 0;
     clients.forEach(c => {
+      revenue += c.price;
       const days = getDaysDifference(c.renewalDate);
-      // Considera receita apenas se não estiver vencido há muito tempo (ex: 30 dias)
-      if (days > -30) {
-          revenue += c.price;
-      }
       if (days >= 0 && days <= 3) expiring++;
     });
     return { totalClients: clients.length, activeRevenue: revenue, expiringSoon: expiring };
@@ -184,7 +189,13 @@ const App: React.FC = () => {
   }
 
   // Div #tela-login (Conceitualmente, renderizada quando !loggedUser)
-  if (!loggedUser) return <AuthView />;
+  if (!loggedUser) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#020617]" />}>
+        <AuthView />
+      </Suspense>
+    );
+  }
 
   // Div #conteudo-sistema (Renderizada quando loggedUser é true)
   return (
@@ -193,10 +204,10 @@ const App: React.FC = () => {
       <header className="sticky top-0 z-40 glass border-b border-white/5 pt-[env(safe-area-inset-top)]">
         <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 md:w-10 md:h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/40 cursor-default">
+            <div className="w-9 h-9 md:w-10 md:h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
               <Tv className="text-white" size={18} />
             </div>
-            <div className="hidden xs:block cursor-default">
+            <div className="hidden xs:block">
               <h1 className="text-base md:text-lg font-black tracking-tighter text-white">MANAGER PRO</h1>
               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Dashboard</p>
             </div>
@@ -204,7 +215,7 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-3 md:gap-6">
             <div className="flex items-center gap-3 pl-3 md:pl-0 border-l md:border-l-0 border-white/5">
-               <div className="text-right hidden sm:block cursor-default">
+               <div className="text-right hidden sm:block">
                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Conta Ativa</p>
                  {/* Injeção de Nome (#user-name) */}
                  <p id="user-name" className="text-xs font-bold text-white leading-none truncate max-w-[120px]">{loggedUser.username}</p>
@@ -229,14 +240,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-1">
-              <button 
-                onClick={() => setIsSettingsOpen(true)}
-                className="p-2 text-slate-400 hover:text-white transition-colors hover:bg-white/5 rounded-lg"
-                title="Configurações e Backup"
-              >
-                <Settings size={20} />
-              </button>
-              <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-400 transition-colors hover:bg-rose-500/10 rounded-lg" title="Sair">
+              <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-400 transition-colors" title="Sair">
                 <LogOut size={20} />
               </button>
               <button 
@@ -251,8 +255,8 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Tab Switcher - Optimized for Desktop (no scroll, just flex) */}
-        <div className="max-w-7xl mx-auto px-4 flex overflow-x-auto md:overflow-visible scrollbar-hide scroll-ios gap-1 md:gap-4">
+        {/* Tab Switcher */}
+        <div className="max-w-7xl mx-auto px-4 flex overflow-x-auto scrollbar-hide scroll-ios">
           <button onClick={() => setActiveTab('list')} className={`flex-shrink-0 flex items-center gap-2 px-6 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'list' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>
             <LayoutDashboard size={14} /> Painel
             {activeTab === 'list' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-500 rounded-full shadow-[0_-4px_12px_rgba(99,102,241,0.6)]"></div>}
@@ -265,95 +269,92 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-10 animate-fade-up scroll-ios">
-        {activeTab === 'list' ? (
-          <>
-            <StatsCards stats={stats} />
-            
-            <div className="flex flex-col md:flex-row gap-4 mb-8 md:mb-12 items-start md:items-center">
-              <div className="relative group w-full md:flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar por nome, MAC ou telefone..." 
-                  value={searchTerm} 
-                  onChange={(e) => setSearchTerm(e.target.value)} 
-                  className="w-full bg-slate-900/50 border border-white/5 text-white rounded-2xl md:rounded-[24px] pl-12 pr-12 py-4 md:py-5 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/30 outline-none transition-all text-base font-medium shadow-inner" 
-                />
-                {searchTerm && (
-                  <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all cursor-pointer">
-                    <X size={14} className="text-slate-400" />
-                  </button>
-                )}
-              </div>
-
-              {/* Filtros em Lista Horizontal sem scroll no Desktop */}
-              <div className="w-full md:w-auto flex flex-nowrap overflow-x-auto md:overflow-visible gap-2 md:gap-3 items-center p-1.5 rounded-[20px] md:rounded-[24px] bg-slate-900/40 border border-white/5 scrollbar-hide scroll-ios">
-                <FilterTab active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} label="Todos" count={counts.all} color="indigo" />
-                <FilterTab active={filterStatus === 'active'} onClick={() => setFilterStatus('active')} label="Ativos" count={counts.active} color="emerald" />
-                <FilterTab active={filterStatus === 'expiring'} onClick={() => setFilterStatus('expiring')} label="Aviso" count={counts.expiring} color="amber" />
-                <FilterTab active={filterStatus === 'expired'} onClick={() => setFilterStatus('expired')} label="Fim" count={counts.expired} color="rose" />
-              </div>
-            </div>
-
-            {filteredClients.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-6">
-                {filteredClients.map(client => (
-                  <ClientCard 
-                    key={client.id} 
-                    client={client} 
-                    daysUntilExpiration={getDaysDifference(client.renewalDate)} 
-                    onDelete={(id) => { if (confirm('Excluir este cliente?')) setClients(prev => prev.filter(c => c.id !== id)); }} 
-                    onEdit={(c) => { setEditingClient(c); setIsModalOpen(true); }}
-                    onRenew={handleRenewClient}
+        <Suspense fallback={<LoadingFallback />}>
+          {activeTab === 'list' ? (
+            <>
+              <StatsCards stats={stats} />
+              
+              <div className="space-y-4 md:space-y-6 mb-8 md:mb-12">
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-500 transition-colors" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="Pesquisar por nome, MAC ou telefone..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="w-full bg-slate-900/50 border border-white/5 text-white rounded-2xl md:rounded-[24px] pl-12 pr-12 py-4 md:py-5 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/30 outline-none transition-all text-base font-medium shadow-inner" 
                   />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16 md:py-24 glass rounded-[32px] md:rounded-[40px] border-dashed border-2 border-white/5">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Search size={24} className="text-slate-500" />
+                  {searchTerm && (
+                    <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all">
+                      <X size={14} className="text-slate-400" />
+                    </button>
+                  )}
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Nenhum registro</h3>
-                <p className="text-slate-500 max-w-xs mx-auto text-sm">Ajuste seus filtros ou adicione um novo cliente.</p>
+
+                <div className="flex flex-nowrap overflow-x-auto gap-2 md:gap-3 items-center p-1.5 rounded-[20px] md:rounded-[24px] bg-slate-900/40 border border-white/5 scrollbar-hide scroll-ios">
+                  <FilterTab active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} label="Todos" count={counts.all} color="indigo" />
+                  <FilterTab active={filterStatus === 'active'} onClick={() => setFilterStatus('active')} label="Ativos" count={counts.active} color="emerald" />
+                  <FilterTab active={filterStatus === 'expiring'} onClick={() => setFilterStatus('expiring')} label="Aviso" count={counts.expiring} color="amber" />
+                  <FilterTab active={filterStatus === 'expired'} onClick={() => setFilterStatus('expired')} label="Fim" count={counts.expired} color="rose" />
+                </div>
               </div>
-            )}
-          </>
-        ) : <AnalyticsView clients={clients} />}
+
+              {filteredClients.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                  {filteredClients.map(client => (
+                    <ClientCard 
+                      key={client.id} 
+                      client={client} 
+                      daysUntilExpiration={getDaysDifference(client.renewalDate)} 
+                      onDelete={handleDeleteClient} 
+                      onEdit={handleEditClient}
+                      onRenew={handleRenewClient}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 md:py-24 glass rounded-[32px] md:rounded-[40px] border-dashed border-2 border-white/5">
+                  <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Search size={24} className="text-slate-500" />
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Nenhum registro</h3>
+                  <p className="text-slate-500 max-w-xs mx-auto text-sm">Ajuste seus filtros ou adicione um novo cliente.</p>
+                </div>
+              )}
+            </>
+          ) : <AnalyticsView clients={clients} />}
+        </Suspense>
       </main>
 
       {/* Spacing for iOS Bottom Bar */}
       <div className="h-[env(safe-area-inset-bottom)]"></div>
 
-      <ClientModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={(c) => { if (editingClient) setClients(prev => prev.map(cl => cl.id === c.id ? c : cl)); else setClients(prev => [...prev, c]); }} 
-        editingClient={editingClient} 
-      />
-      
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        clients={clients}
-        onImportClients={setClients}
-      />
+      <Suspense fallback={null}>
+        <ClientModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onSave={handleSaveClient} 
+          editingClient={editingClient} 
+        />
+      </Suspense>
     </div>
   );
 };
 
-const FilterTab: React.FC<{active: boolean, onClick: () => void, label: string, count: number, color: string}> = ({ active, onClick, label, count, color }) => {
+// Memoized FilterTab to prevent re-renders when other state changes
+const FilterTab = React.memo(({active, onClick, label, count, color}: {active: boolean, onClick: () => void, label: string, count: number, color: string}) => {
   const colorMap: any = {
-    indigo: active ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200',
-    emerald: active ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200',
-    amber: active ? 'bg-amber-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200',
-    rose: active ? 'bg-rose-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-slate-200'
+    indigo: active ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-white/5',
+    emerald: active ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-white/5',
+    amber: active ? 'bg-amber-600 text-white' : 'text-slate-500 hover:bg-white/5',
+    rose: active ? 'bg-rose-600 text-white' : 'text-slate-500 hover:bg-white/5'
   };
   return (
-    <button onClick={onClick} className={`flex-shrink-0 flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest transition-all ${colorMap[color]} active:scale-95 cursor-pointer`}>
+    <button onClick={onClick} className={`flex-shrink-0 flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest transition-all ${colorMap[color]} active:scale-95`}>
       {label}
       <span className={`px-1.5 py-0.5 rounded-lg ${active ? 'bg-black/20' : 'bg-slate-800'}`}>{count}</span>
     </button>
   );
-};
+});
 
 export default App;

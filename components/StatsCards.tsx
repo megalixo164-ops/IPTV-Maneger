@@ -6,7 +6,7 @@ interface StatsCardsProps {
   stats: ClientStats;
 }
 
-export const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
+export const StatsCards: React.FC<StatsCardsProps> = React.memo(({ stats }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
       <StatItem 
@@ -29,7 +29,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
       />
     </div>
   );
-};
+});
 
 const StatItem = ({ icon, label, value, color }: { icon: any, label: string, value: string | number, color: 'indigo' | 'emerald' | 'orange' }) => {
   const colorStyles = {
