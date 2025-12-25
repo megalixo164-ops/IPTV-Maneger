@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Client, ClientStats, User as UserType } from './types';
-import { Plus, Search, Tv, LayoutDashboard, BarChart3, LogOut, X } from 'lucide-react';
+import { Plus, Search, Tv, LayoutDashboard, BarChart3, LogOut, X, Settings } from 'lucide-react';
 import { StatsCards } from './components/StatsCards';
 import { ClientCard } from './components/ClientCard';
 import { ClientModal } from './components/ClientModal';
+import { SettingsModal } from './components/SettingsModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { AuthView } from './components/AuthView';
 import { auth, onAuthStateChanged, signOut } from './services/firebase';
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [activeTab, setActiveTab] = useState<'list' | 'analytics'>('list');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expiring' | 'expired'>('all');
@@ -227,6 +229,13 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2 text-slate-400 hover:text-white transition-colors"
+                title="Configurações e Backup"
+              >
+                <Settings size={20} />
+              </button>
               <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-400 transition-colors" title="Sair">
                 <LogOut size={20} />
               </button>
@@ -319,6 +328,13 @@ const App: React.FC = () => {
         onClose={() => setIsModalOpen(false)} 
         onSave={(c) => { if (editingClient) setClients(prev => prev.map(cl => cl.id === c.id ? c : cl)); else setClients(prev => [...prev, c]); }} 
         editingClient={editingClient} 
+      />
+      
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        clients={clients}
+        onImportClients={setClients}
       />
     </div>
   );

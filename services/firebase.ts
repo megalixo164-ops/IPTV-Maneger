@@ -1,13 +1,16 @@
 // @ts-ignore
 import { initializeApp } from "firebase/app";
-// @ts-ignore
-import { 
-  getAuth, 
-  signInWithEmailAndPassword as firebaseSignInWithEmailAndPassword,
-  createUserWithEmailAndPassword as firebaseCreateUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onAuthStateChanged as firebaseOnAuthStateChanged
-} from "firebase/auth";
+import * as firebaseAuth from "firebase/auth";
+
+// Fix for TypeScript errors: Module '"firebase/auth"' has no exported member...
+// We import as a namespace and cast to any to bypass strict type checking on the exports
+const {
+  getAuth,
+  signInWithEmailAndPassword: firebaseSignInWithEmailAndPassword,
+  createUserWithEmailAndPassword: firebaseCreateUserWithEmailAndPassword,
+  signOut: firebaseSignOut,
+  onAuthStateChanged: firebaseOnAuthStateChanged
+} = firebaseAuth as any;
 
 // ============================================================
 // CONFIGURAÇÃO DO FIREBASE
@@ -25,7 +28,7 @@ const firebaseConfig = {
 };
 
 // Verifica se está usando a configuração padrão/inválida
-const isDemoMode = firebaseConfig.apiKey === "AIzaSy..." || firebaseConfig.apiKey.includes("SUA_API_KEY");
+export const isDemoMode = firebaseConfig.apiKey === "AIzaSy..." || firebaseConfig.apiKey.includes("SUA_API_KEY");
 
 let auth: any;
 let signInWithEmailAndPassword: any;
