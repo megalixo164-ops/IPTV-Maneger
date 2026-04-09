@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { Client, ClientStats, User as UserType } from './types';
-import { Plus, Search, Tv, LayoutDashboard, BarChart3, LogOut, X, Loader2 } from 'lucide-react';
+import { Plus, Search, Tv, LayoutDashboard, BarChart3, LogOut, X, Loader2, Cloud, Signal } from 'lucide-react';
 import { StatsCards } from './components/StatsCards';
 import { ClientCard } from './components/ClientCard';
-import { supabase } from './services/supabase'; // NOTE: Keeping for reference, but we are moving to Firebase logic in this file based on prompt
 import { 
   auth, 
   onAuthStateChanged, 
@@ -11,7 +10,13 @@ import {
   db, 
   doc, 
   getDoc, 
-  setDoc 
+  setDoc,
+  collection,
+  query,
+  onSnapshot,
+  updateDoc,
+  deleteDoc,
+  writeBatch
 } from './services/firebase';
 import { UserProfileModal } from './components/UserProfileModal';
 
@@ -20,6 +25,7 @@ const ClientModal = lazy(() => import('./components/ClientModal').then(m => ({ d
 const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
 const AuthView = lazy(() => import('./components/AuthView').then(m => ({ default: m.AuthView })));
 
+// Helper movido para fora do componente para performance
 const getDaysDifference = (dateString: string): number => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -32,7 +38,7 @@ const getDaysDifference = (dateString: string): number => {
 const LoadingSpinner = () => (
   <div className="flex flex-col items-center justify-center py-20 gap-4">
     <Loader2 size={32} className="text-indigo-500 animate-spin" />
-    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Carregando painel...</p>
+    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Sincronizando dados...</p>
   </div>
 );
 
@@ -56,17 +62,15 @@ const App: React.FC = () => {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Monitoramento de Autenticação com FIREBASE & FIRESTORE SYNC
+  // 1. Monitoramento de Autenticação
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user: any) => {
       if (user) {
         try {
-          // Check if user exists in Firestore
           const userRef = doc(db, "users", user.uid);
           const userSnap = await getDoc(userRef);
 
           if (userSnap.exists()) {
-            // User exists in DB, use DB data
             const userData = userSnap.data();
             setLoggedUser({
               id: user.uid,
@@ -75,16 +79,13 @@ const App: React.FC = () => {
               avatar: userData.photoURL || user.photoURL || undefined
             });
           } else {
-            // User registered (via Auth) but not in DB -> Create Doc
             const newUserData = {
               username: user.displayName || user.email?.split('@')[0] || 'User',
               email: user.email,
               photoURL: user.photoURL,
               createdAt: new Date().toISOString()
             };
-            
             await setDoc(userRef, newUserData);
-            
             setLoggedUser({
               id: user.uid,
               username: newUserData.username,
@@ -94,7 +95,6 @@ const App: React.FC = () => {
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
-          // Fallback to Auth data if DB fails
           setLoggedUser({
             id: user.uid,
             username: user.displayName || 'User',
@@ -112,27 +112,52 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Use localStorage for client data (Simulating DB for clients for now, as requested only User Auth was to be Firebase)
-  // If you wanted clients in Firestore too, we'd change this. For now, keeping existing client logic but tied to loggedUser.id
+  // 2. Sincronização em Tempo Real (Firestore) + Migração de LocalStorage
   useEffect(() => {
-    if (loggedUser) {
-      const storageKey = `iptv_data_user_${loggedUser.id}`;
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        try { setClients(JSON.parse(saved)); } 
-        catch (e) { console.error(e); }
-      } else {
-        setClients([]); 
-      }
-    }
-  }, [loggedUser?.id]); // Only re-run if ID changes
+    if (!loggedUser) return;
+    
+    setLoadingData(true);
 
-  useEffect(() => {
-    if (loggedUser) {
-      const storageKey = `iptv_data_user_${loggedUser.id}`;
-      localStorage.setItem(storageKey, JSON.stringify(clients));
-    }
-  }, [clients, loggedUser]);
+    const clientsRef = collection(db, 'users', loggedUser.id, 'clients');
+    const q = query(clientsRef);
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const firebaseClients = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      })) as Client[];
+
+      // LÓGICA DE MIGRAÇÃO OTIMIZADA
+      if (firebaseClients.length === 0) {
+        const storageKey = `iptv_data_user_${loggedUser.id}`;
+        const localData = localStorage.getItem(storageKey);
+        
+        if (localData) {
+          try {
+            const parsedLocalClients = JSON.parse(localData) as Client[];
+            if (parsedLocalClients.length > 0) {
+              const batch = writeBatch(db);
+              parsedLocalClients.forEach(client => {
+                const docRef = doc(clientsRef, client.id);
+                batch.set(docRef, client);
+              });
+              await batch.commit();
+            }
+          } catch (e) {
+            console.error("Erro ao migrar dados locais:", e);
+          }
+        }
+      }
+
+      setClients(firebaseClients);
+      setLoadingData(false);
+    }, (error) => {
+      console.error("Erro no listener do Firestore:", error);
+      setLoadingData(false);
+    });
+
+    return () => unsubscribe();
+  }, [loggedUser]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -144,24 +169,39 @@ const App: React.FC = () => {
   }, []);
 
   const handleRenewClient = useCallback(async (id: string) => {
-    setClients(prev => prev.map(client => {
-      if (client.id !== id) return client;
+    if (!loggedUser) return;
+    
+    const clientToRenew = clients.find(c => c.id === id);
+    if (!clientToRenew) return;
 
-      const today = new Date();
-      const currentRenewal = new Date(client.renewalDate);
-      let newDate = currentRenewal < today ? new Date(today) : new Date(currentRenewal);
-      newDate.setDate(newDate.getDate() + 30);
-      
-      const newDateStr = newDate.toISOString().split('T')[0];
+    const today = new Date();
+    const currentRenewal = new Date(clientToRenew.renewalDate);
+    // Lógica inteligente: se já venceu, renova a partir de hoje. Se não venceu, soma 30 dias na data atual de vencimento.
+    let newDate = currentRenewal < today ? new Date(today) : new Date(currentRenewal);
+    newDate.setDate(newDate.getDate() + 30);
+    const newDateStr = newDate.toISOString().split('T')[0];
 
-      return { ...client, renewalDate: newDateStr };
-    }));
-  }, []);
+    try {
+      const clientRef = doc(db, 'users', loggedUser.id, 'clients', id);
+      await updateDoc(clientRef, { renewalDate: newDateStr });
+    } catch (error) {
+      console.error("Erro ao renovar cliente:", error);
+      alert("Erro ao salvar renovação. Verifique sua conexão.");
+    }
+  }, [clients, loggedUser]);
 
-  const handleDeleteClient = useCallback((id: string) => {
-    // Exclusão imediata sem confirmação
-    setClients(prev => prev.filter(c => c.id !== id));
-  }, []);
+  const handleDeleteClient = useCallback(async (id: string) => {
+    if (!loggedUser) return;
+    if (!confirm("Tem certeza que deseja excluir este cliente?")) return;
+    
+    try {
+      const clientRef = doc(db, 'users', loggedUser.id, 'clients', id);
+      await deleteDoc(clientRef);
+    } catch (error) {
+      console.error("Erro ao deletar cliente:", error);
+      alert("Erro ao excluir. Verifique sua conexão.");
+    }
+  }, [loggedUser]);
 
   const handleEditClient = useCallback((c: Client) => {
     setEditingClient(c);
@@ -171,14 +211,15 @@ const App: React.FC = () => {
   const handleSaveClient = useCallback(async (clientData: Client) => {
     if (!loggedUser) return;
     
-    // LocalStorage logic (App logic)
-    if (editingClient) {
-      setClients(prev => prev.map(cl => cl.id === clientData.id ? clientData : cl));
-    } else {
-      setClients(prev => [...prev, clientData]);
+    try {
+      const clientRef = doc(db, 'users', loggedUser.id, 'clients', clientData.id);
+      await setDoc(clientRef, clientData, { merge: true });
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao salvar cliente:", error);
+      alert("Erro ao salvar dados. Tente novamente.");
     }
-    setIsModalOpen(false);
-  }, [editingClient, loggedUser]);
+  }, [loggedUser]);
 
   const stats: ClientStats = useMemo(() => {
     let revenue = 0;
@@ -203,23 +244,31 @@ const App: React.FC = () => {
   }, [clients]);
 
   const filteredClients = useMemo(() => {
-    const query = debouncedSearchTerm.toLowerCase();
-    return clients
-      .filter(c => {
-        if (query) {
-          const matchesSearch = c.name.toLowerCase().includes(query) || 
-                               c.server?.toLowerCase().includes(query) ||
-                               c.phone.includes(query) ||
-                               c.macAddress?.toLowerCase().includes(query);
-          if (!matchesSearch) return false;
-        }
-        const days = getDaysDifference(c.renewalDate);
-        if (filterStatus === 'active') return days > 3;
-        if (filterStatus === 'expiring') return days >= 0 && days <= 3;
-        if (filterStatus === 'expired') return days < 0;
-        return true;
-      })
-      .sort((a, b) => getDaysDifference(a.renewalDate) - getDaysDifference(b.renewalDate));
+    const queryStr = debouncedSearchTerm.toLowerCase();
+    
+    let result = clients;
+
+    // Filtro de Texto
+    if (queryStr) {
+      result = result.filter(c => 
+        c.name.toLowerCase().includes(queryStr) || 
+        c.server?.toLowerCase().includes(queryStr) ||
+        c.phone.includes(queryStr) ||
+        c.macAddress?.toLowerCase().includes(queryStr)
+      );
+    }
+
+    // Filtro de Status
+    result = result.filter(c => {
+      const days = getDaysDifference(c.renewalDate);
+      if (filterStatus === 'active') return days > 3;
+      if (filterStatus === 'expiring') return days >= 0 && days <= 3;
+      if (filterStatus === 'expired') return days < 0;
+      return true;
+    });
+
+    // Ordenação: Vencendo primeiro
+    return result.sort((a, b) => getDaysDifference(a.renewalDate) - getDaysDifference(b.renewalDate));
   }, [clients, debouncedSearchTerm, filterStatus]);
 
   if (loadingAuth) {
@@ -239,16 +288,28 @@ const App: React.FC = () => {
   }
 
   return (
-    <div id="conteudo-sistema" className="min-h-screen bg-[#020617] text-slate-200 pb-safe">
-      <header className="sticky top-0 z-40 glass border-b border-white/5 pt-[env(safe-area-inset-top)]">
-        <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between">
+    <div id="conteudo-sistema" className="min-h-screen bg-[#020617] text-slate-200 pb-safe relative">
+      {/* Background Dinâmico - Toque Premium */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/10 blur-[120px] rounded-full mix-blend-screen opacity-50 animate-pulse" style={{animationDuration: '8s'}}></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-900/10 blur-[120px] rounded-full mix-blend-screen opacity-30 animate-pulse" style={{animationDuration: '10s'}}></div>
+      </div>
+
+      <header className="sticky top-0 z-40 glass border-b border-white/5 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 md:w-10 md:h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
-              <Tv className="text-white" size={18} />
+            <div className="w-9 h-9 md:w-10 md:h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/40 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+              <Tv className="text-white relative z-10" size={18} />
             </div>
             <div className="hidden xs:block">
               <h1 className="text-base md:text-lg font-black tracking-tighter text-white">MANAGER PRO</h1>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Dashboard</p>
+              <div className="flex items-center gap-1">
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em]">Dashboard</p>
+                <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[8px] font-bold text-emerald-400 border border-emerald-500/20">
+                  <Signal size={8} className="animate-pulse" /> ONLINE
+                </div>
+              </div>
             </div>
           </div>
           
@@ -273,7 +334,7 @@ const App: React.FC = () => {
               </button>
               <button 
                 onClick={() => { setEditingClient(null); setIsModalOpen(true); }} 
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black flex items-center gap-2 transition-all active:scale-90 shadow-xl shadow-indigo-900/20"
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black flex items-center gap-2 transition-all active:scale-90 shadow-xl shadow-indigo-900/20 hover:shadow-indigo-900/40"
               >
                 <Plus size={16} />
                 <span className="hidden sm:inline">NOVO CLIENTE</span>
@@ -283,19 +344,19 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 flex overflow-x-auto scrollbar-hide scroll-ios">
+        <div className="max-w-7xl mx-auto px-4 flex overflow-x-auto scrollbar-hide scroll-ios relative z-10">
           <button onClick={() => setActiveTab('list')} className={`flex-shrink-0 flex items-center gap-2 px-6 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'list' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>
             <LayoutDashboard size={14} /> Painel
-            {activeTab === 'list' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-500 rounded-full shadow-[0_-4px_12px_rgba(99,102,241,0.6)]"></div>}
+            {activeTab === 'list' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 shadow-[0_-4px_12px_rgba(99,102,241,0.6)]"></div>}
           </button>
           <button onClick={() => setActiveTab('analytics')} className={`flex-shrink-0 flex items-center gap-2 px-6 py-4 text-[10px] md:text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'analytics' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}>
             <BarChart3 size={14} /> Analytics
-            {activeTab === 'analytics' && <div className="absolute bottom-0 left-0 w-full h-1 bg-indigo-500 rounded-full shadow-[0_-4px_12px_rgba(99,102,241,0.6)]"></div>}
+            {activeTab === 'analytics' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 shadow-[0_-4px_12px_rgba(99,102,241,0.6)]"></div>}
           </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-10 animate-fade-up scroll-ios">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-10 animate-fade-up scroll-ios relative z-10">
         <Suspense fallback={<LoadingSpinner />}>
           {activeTab === 'list' ? (
             <>
@@ -326,9 +387,9 @@ const App: React.FC = () => {
               </div>
 
               {loadingData ? (
-                 <div className="text-center py-24"><Loader2 className="animate-spin mx-auto text-indigo-500"/></div>
+                 <LoadingSpinner />
               ) : filteredClients.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-20">
                   {filteredClients.map(client => (
                     <ClientCard 
                       key={client.id} 
@@ -346,15 +407,13 @@ const App: React.FC = () => {
                     <Search size={24} className="text-slate-500" />
                   </div>
                   <h3 className="text-xl md:text-2xl font-bold text-white mb-3">Nenhum registro</h3>
-                  <p className="text-slate-500 max-w-xs mx-auto text-sm">Ajuste seus filtros ou adicione um novo cliente.</p>
+                  <p className="text-slate-500 max-w-xs mx-auto text-sm">Ajuste seus filtros ou adicione um novo cliente. Seus dados estão salvos na nuvem.</p>
                 </div>
               )}
             </>
           ) : <AnalyticsView clients={clients} />}
         </Suspense>
       </main>
-
-      <div className="h-[env(safe-area-inset-bottom)]"></div>
 
       <Suspense fallback={null}>
         <ClientModal 
@@ -377,13 +436,13 @@ const App: React.FC = () => {
 
 const FilterTab = React.memo(({ active, onClick, label, count, color }: {active: boolean, onClick: () => void, label: string, count: number, color: string}) => {
   const colorMap: any = {
-    indigo: active ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-white/5',
-    emerald: active ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-white/5',
-    amber: active ? 'bg-amber-600 text-white' : 'text-slate-500 hover:bg-white/5',
-    rose: active ? 'bg-rose-600 text-white' : 'text-slate-500 hover:bg-white/5'
+    indigo: active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:bg-white/5',
+    emerald: active ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 hover:bg-white/5',
+    amber: active ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' : 'text-slate-500 hover:bg-white/5',
+    rose: active ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/20' : 'text-slate-500 hover:bg-white/5'
   };
   return (
-    <button onClick={onClick} className={`flex-shrink-0 flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest transition-all ${colorMap[color]} active:scale-95`}>
+    <button onClick={onClick} className={`flex-shrink-0 flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[11px] font-black uppercase tracking-widest transition-all ${colorMap[color]} active:scale-95 border border-transparent ${active ? '' : 'hover:border-white/5'}`}>
       {label}
       <span className={`px-1.5 py-0.5 rounded-lg ${active ? 'bg-black/20' : 'bg-slate-800'}`}>{count}</span>
     </button>

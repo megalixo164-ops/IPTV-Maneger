@@ -17,6 +17,7 @@ export interface Client {
   server?: string;
   macAddress?: string;
   devicePassword?: string;
+  deviceType?: 'android' | 'iphone' | 'tv' | 'other';
 }
 
 export interface ClientStats {

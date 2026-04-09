@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '../types';
-import { Calendar, Smartphone, DollarSign, MessageCircle, Trash2, Edit, Wand2, Copy, Check, UserCheck, Clock, AlertCircle, StickyNote, ExternalLink, Zap, Cpu, Key } from 'lucide-react';
+import { Calendar, Smartphone, DollarSign, MessageCircle, Trash2, Edit, Wand2, Copy, Check, UserCheck, Clock, AlertCircle, StickyNote, ExternalLink, Zap, Cpu, Key, Tv, Monitor } from 'lucide-react';
 import { generateRenewalMessage } from '../services/geminiService';
 
 interface ClientCardProps {
@@ -17,11 +17,9 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
   const [copied, setCopied] = useState(false);
   const [successAnimation, setSuccessAnimation] = useState(false);
   
-  // States para cópia individual de campos
   const [macCopied, setMacCopied] = useState(false);
   const [passCopied, setPassCopied] = useState(false);
 
-  // UseEffect para resetar a animação caso o card mude drasticamente, embora a lógica principal seja no click
   useEffect(() => {
     if (successAnimation) {
       const timer = setTimeout(() => setSuccessAnimation(false), 2500);
@@ -90,8 +88,29 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
     window.open(`https://wa.me/55${cleanPhone}?text=${text}`, '_blank');
   };
 
+  // Device Info Helper com cores mais vivas
+  const getDeviceIcon = () => {
+    switch (client.deviceType) {
+      case 'tv': return <Tv size={12} className="text-white" />;
+      case 'android': return <Smartphone size={12} className="text-emerald-400" />;
+      case 'iphone': return <Smartphone size={12} className="text-white" />;
+      case 'other': return <Monitor size={12} className="text-slate-300" />;
+      default: return null;
+    }
+  };
+
+  const getDeviceLabel = () => {
+    switch (client.deviceType) {
+      case 'tv': return 'TV/Box';
+      case 'android': return 'Android';
+      case 'iphone': return 'iPhone';
+      case 'other': return 'Outro';
+      default: return null;
+    }
+  };
+
   return (
-    <div className={`glass rounded-3xl border ${successAnimation ? 'border-emerald-500/60 shadow-[0_0_30px_rgba(16,185,129,0.2)]' : statusTheme.border} p-6 transition-all duration-300 group hover:shadow-2xl relative overflow-hidden`}>
+    <div className={`glass rounded-3xl border ${successAnimation ? 'border-emerald-500/60 shadow-[0_0_30px_rgba(16,185,129,0.2)]' : statusTheme.border} p-6 transition-all duration-300 group hover:shadow-2xl relative overflow-hidden h-full flex flex-col`}>
       
       {/* Background Flash Animation on Renew */}
       {successAnimation && (
@@ -100,20 +119,29 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
 
       <div className="flex justify-between items-start mb-6 relative z-10">
         <div className="flex gap-4">
-          <div className={`p-3 rounded-2xl ${successAnimation ? 'bg-emerald-500/20 text-emerald-400' : statusTheme.bg + ' ' + (statusTheme as any).iconClass} border border-white/5 text-white/80 transition-colors duration-500`}>
+          <div className={`p-3 rounded-2xl ${successAnimation ? 'bg-emerald-500/20 text-emerald-400' : statusTheme.bg} border border-white/5 text-white/80 transition-colors duration-500`}>
              {successAnimation ? <Check size={24} /> : <statusTheme.icon size={24} />}
           </div>
           <div>
             <h3 className="text-xl font-bold text-white tracking-tight leading-tight truncate max-w-[160px]">
               {client.name}
             </h3>
-            <span className={`inline-block mt-1 text-[10px] uppercase font-black px-2 py-0.5 rounded-full transition-colors duration-500 ${successAnimation ? 'bg-emerald-500/20 text-emerald-400' : statusTheme.badge}`}>
-              {successAnimation ? "RENOVADO" : statusTheme.text}
-            </span>
+            <div className="flex gap-1.5 mt-1.5">
+              <span className={`inline-block text-[10px] uppercase font-black px-2 py-0.5 rounded-full transition-colors duration-500 ${successAnimation ? 'bg-emerald-500/20 text-emerald-400' : statusTheme.badge}`}>
+                {successAnimation ? "RENOVADO" : statusTheme.text}
+              </span>
+              
+              {client.deviceType && (
+                <span className="inline-flex items-center gap-1.5 bg-slate-800/80 border border-white/10 px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-300 uppercase shadow-sm">
+                  {getDeviceIcon()}
+                  {getDeviceLabel()}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
-        <div className="flex gap-1">
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -137,7 +165,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
         </div>
       </div>
 
-      <div className="space-y-3 mb-6 relative z-10">
+      <div className="space-y-3 mb-6 relative z-10 flex-grow">
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-500 font-medium flex items-center gap-2">
             <Calendar size={14} /> Expiração
@@ -165,7 +193,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
             <span className="text-slate-500 font-medium flex items-center gap-2">
               <ExternalLink size={14} /> Servidor
             </span>
-            <span className="text-indigo-400 font-semibold px-2 py-0.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20 uppercase text-[10px]">
+            <span className="text-indigo-400 font-semibold px-2 py-0.5 bg-indigo-500/10 rounded-lg border border-indigo-500/20 uppercase text-[10px] tracking-wider">
               {client.server}
             </span>
           </div>
@@ -219,7 +247,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
         </div>
       )}
 
-      <div className="pt-4 border-t border-white/5 space-y-3 relative z-10">
+      <div className="pt-4 border-t border-white/5 space-y-3 relative z-10 mt-auto">
         {/* Lógica de Exibição do Botão de Renovação */}
         {(daysUntilExpiration <= 3 && !successAnimation) ? (
           <button
@@ -241,7 +269,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
              <button
               onClick={handleGenerateMessage}
               disabled={isGenerating}
-              className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition-all disabled:opacity-50 active:scale-[0.97]"
+              className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition-all disabled:opacity-50 active:scale-[0.97] hover:shadow-lg"
              >
                {isGenerating ? (
                  <span className="animate-pulse">Criando...</span>
@@ -257,7 +285,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, daysUntilExpirat
                   const cleanPhone = client.phone.replace(/\D/g, '');
                   window.open(`https://wa.me/55${cleanPhone}`, '_blank');
                 }}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-2xl transition-all active:scale-[0.97]"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-2xl transition-all active:scale-[0.97] hover:shadow-lg hover:shadow-emerald-900/20"
                 title="Abrir WhatsApp"
               >
                 <MessageCircle size={20} />

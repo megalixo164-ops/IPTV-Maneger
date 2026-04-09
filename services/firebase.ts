@@ -13,7 +13,20 @@ import {
 // @ts-ignore
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 // @ts-ignore
-import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  updateDoc, 
+  deleteDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  onSnapshot,
+  writeBatch
+} from "firebase/firestore";
 
 // ============================================================
 // CONFIGURAÇÃO REAL DO FIREBASE
@@ -51,5 +64,11 @@ export {
   setDoc,
   getDoc,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  onSnapshot,
+  writeBatch
 };
